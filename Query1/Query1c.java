@@ -44,13 +44,13 @@ public class Query1c{
             out.writeInt(date);
             out.writeDouble(netPay);
         }
-    
+
         @Override
         public void readFields(DataInput in) throws IOException {
             date = in.readInt();
             netPay = in.readDouble();
         }
-    
+
         @Override
         public int compareTo(IntDoublePair o) {
             if (this.netPay != o.netPay) {
@@ -58,28 +58,28 @@ public class Query1c{
             }
             return (this.date < o.date ? -1 : (this.netPay == o.netPay ? 0 : 1));
         }
-    
+
         public void set(int date, Double netPay) {
             this.date = date;
             this.netPay = netPay;
         }
-    
+
         public int getDate() {
             return date;
         }
-    
+
         public void setDate(int date) {
             this.date = date;
         }
-    
+
         public Double getNetPay() {
             return netPay;
         }
-    
+
         public void setNetPay(Double netPay) {
             this.netPay = netPay;
         }
-    
+
         @Override
         public int hashCode() {
             final int prime = 31;
@@ -88,7 +88,7 @@ public class Query1c{
             result = prime * result + (int)Math.round(netPay);
             return result;
         }
-    
+
         @Override
         public boolean equals(Object obj) {
             if (this == obj)
@@ -135,7 +135,7 @@ public class Query1c{
                 }
                 ss_sold_date = temp_timestamp;
             }
-            // Check whether the ss_net_paid_inc_tax part is valid. 
+            // Check whether the ss_net_paid_inc_tax part is valid.
             if (data_array[21].isEmpty() || data_array[21] == null || data_array[21].trim().isEmpty()) {
                 return;
             }
@@ -149,19 +149,32 @@ public class Query1c{
         }
     }
 
+    public static class CustomCombiner extends Reducer<IntWritable, IntDoublePair,IntWritable, IntDoublePair> {
+        public void reduce(IntWritable key, Iterable<IntDoublePair> values, Context context) throws IOException, InterruptedException {
+            Double localSum = 0D;
+            int date = 0;
+            for (IntDoublePair val : values) {
+                localSum += val.getNetPay();
+                date = val.getDate();
+            }
+            IntDoublePair outValue = new IntDoublePair(date, localSum);
+            context.write(key, outValue);
+        }
+    }
+
     public static class HighestValueNetPayReducer extends Reducer<IntWritable, IntDoublePair, Text, DoubleWritable> {
         private TreeMap<IntDoublePair, Integer> treeMap = new TreeMap<IntDoublePair, Integer>(
-            new Comparator<IntDoublePair>() {
-            @Override
-            // In order to implement the descending order
-            public int compare(IntDoublePair x, IntDoublePair y){
-                return y.compareTo(x);
-            }
-        });
+                new Comparator<IntDoublePair>() {
+                    @Override
+                    // In order to implement the descending order
+                    public int compare(IntDoublePair x, IntDoublePair y){
+                        return y.compareTo(x);
+                    }
+                });
 
         @Override
-        public void reduce(IntWritable key, Iterable<IntDoublePair> values, Context context) 
-        throws IOException, InterruptedException{
+        public void reduce(IntWritable key, Iterable<IntDoublePair> values, Context context)
+                throws IOException, InterruptedException{
             int soldDate = key.get();
             Double local_sum = 0D;
             for (IntDoublePair val: values) {
@@ -192,7 +205,7 @@ public class Query1c{
     }
 
     public static void main(String[] args) throws Exception{
-        
+
         Configuration conf = new Configuration();
         // Get the parameters from the command line
         conf.setStrings("Query1C inputs",args);
@@ -200,6 +213,8 @@ public class Query1c{
         job.setJarByClass(Query1c.class);
         // Mapper class
         job.setMapperClass(HighestValueNetPayMapper.class);
+        // Combiner class
+        job.setCombinerClass(CustomCombiner.class);
 
         // Reducer class
         job.setReducerClass(HighestValueNetPayReducer.class);

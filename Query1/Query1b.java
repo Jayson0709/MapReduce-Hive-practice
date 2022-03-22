@@ -30,25 +30,50 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 
 public class Query1b {
-    public static class IdQuantityPair {
+    public static class IdQuantityPair implements WritableComparable<IdQuantityPair> {
         private Integer id;
         private Integer quantity;
+
+        public IdQuantityPair() {
+            super();
+        }
+
         public IdQuantityPair(Integer id, Integer quantity) {
+            super();
             this.id = id;
             this.quantity = quantity;
         }
 
         public Integer getId() {
-        return id;
+            return id;
         }
 
         public Integer getQuantity() {
-        return quantity;
+            return quantity;
+        }
+
+        @Override
+        public void write(DataOutput out) throws IOException {
+            out.writeInt(this.id);
+            out.writeInt(this.quantity);
+        }
+
+        @Override
+        public void readFields(DataInput in) throws IOException {
+            this.id = in.readInt();
+            this.quantity = in.readInt();
+        }
+
+        @Override
+        public int compareTo(IdQuantityPair o) {
+            if (this.quantity != o.quantity) {
+                return this.quantity < o.quantity ? -1 : 1;
+            }
+            return (this.id < this.id ? -1 : (this.quantity == o.quantity ? 0 : 1));
         }
     }
 
     public static class TokenizerMapper extends Mapper<Object, Text, IntWritable, IntWritable>{
-         
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
             String record = value.toString();
             String[] parts = record.split("\\|", -1);
@@ -61,13 +86,13 @@ public class Query1b {
             if (parts[10].isEmpty() || parts[10] == null || parts[10].trim().isEmpty()) {
                 return;
             }
-            
+
             Configuration cfg = context.getConfiguration();
             String args[] = cfg.getStrings("Query1B inputs");
             int start_date = Integer.parseInt(args[1]);
             int end_date = Integer.parseInt(args[2]);
             int timestamp = Integer.parseInt(parts[0]);
-            
+
             if (timestamp < start_date || timestamp > end_date) {
                 return;
             }
@@ -85,17 +110,15 @@ public class Query1b {
             for (IntWritable val : values) {
                 sum += val.get();
             }
-
-        context.write(new IntWritable(item_id), new IntWritable(sum));
+            context.write(new IntWritable(item_id), new IntWritable(sum));
         }
     }
 
     public static class SortReducer extends Reducer<IntWritable,IntWritable,IntWritable,IntWritable> {
-
         private TreeMap<IdQuantityPair, NullType> map = new TreeMap<IdQuantityPair, NullType>(new Comparator<IdQuantityPair>(){
             @Override
             public int compare(IdQuantityPair o1, IdQuantityPair o2) {
-                return o2.getQuantity().compareTo(o1.getQuantity());
+                return o2.compareTo(o1);
             }
         });
 
@@ -103,27 +126,28 @@ public class Query1b {
             Configuration cfg = context.getConfiguration();
             String args[] = cfg.getStrings("Query1B inputs");
             int k = Integer.parseInt(args[0]);
-
+            int local_sum = 0;
             for (IntWritable val : values) {
-                map.put(new IdQuantityPair(key.get(), val.get()), null);
-                if (map.size() > k) {
-                    map.pollLastEntry();
-                }
+                local_sum += val.get();
+            }
+            map.put(new IdQuantityPair(key.get(), local_sum), null);
+            if (map.size() > k) {
+                map.pollLastEntry();
             }
         }
 
         public void cleanup(Context context) throws IOException, InterruptedException {
             for (Map.Entry<IdQuantityPair, NullType> entry: map.entrySet()) {
-            IntWritable item_id = new IntWritable(entry.getKey().getId());
-            IntWritable quantity = new IntWritable(entry.getKey().getQuantity());
-               context.write(item_id, quantity);
+                IntWritable item_id = new IntWritable(entry.getKey().getId());
+                IntWritable quantity = new IntWritable(entry.getKey().getQuantity());
+                context.write(item_id, quantity);
             }
         }
     }
 
     public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
-        conf.setStrings("Query1B inputs",args);
+        conf.setStrings("Query1B inputs", args);
         Job job = Job.getInstance(conf, "Query 1-b");
         job.setJarByClass(Query1b.class);
         job.setMapperClass(TokenizerMapper.class);
