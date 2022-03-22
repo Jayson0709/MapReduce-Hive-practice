@@ -25,5 +25,5 @@ create external table store_sales(
 )
 row format delimited
 fields terminated by ','
-location '/user/cs346id34/input/1G/store_sales';
+location 'input/1G/store_sales';
 
