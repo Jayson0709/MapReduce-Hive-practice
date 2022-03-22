@@ -23,38 +23,37 @@ import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
     bin/hadoop ReduceSideJoin.jar RSJDriver 10 2451146 2452268 path/to/store_sales.dat path/to/store.dat output
 */
 
-
 public class ReduceSideJoin {
-    /*
-        The comparator pair contains s_floor_space, ss_net_paid.
-        Compare the floor space first, if they are equal, compare the second one.
-    */ 
+    /**
+     * The comparator pair contains s_floor_space, ss_net_paid.
+     * Compare the floor space first, if they are equal, compare the second one.
+     */
     public static class FloorSpaceNetPaidPair implements WritableComparable<FloorSpaceNetPaidPair>{
         private int s_floor_space;
         private Double ss_net_paid;
-    
+
         public FloorSpaceNetPaidPair() {
             super();
         }
-    
+
         public FloorSpaceNetPaidPair(int s_floor_space, Double ss_net_paid) {
             super();
             this.s_floor_space = s_floor_space;
             this.ss_net_paid = ss_net_paid;
         }
-    
+
         @Override
         public void readFields(DataInput in) throws IOException {
             s_floor_space = in.readInt();
             ss_net_paid = in.readDouble();
         }
-    
+
         @Override
         public void write(DataOutput out) throws IOException {
             out.writeInt(s_floor_space);
             out.writeDouble(ss_net_paid);
         }
-    
+
         @Override
         public int compareTo(FloorSpaceNetPaidPair o) {
             if (this.s_floor_space != o.s_floor_space){
@@ -72,22 +71,22 @@ public class ReduceSideJoin {
         public int getSsStoreSK() {
             return this.s_floor_space;
         }
-    
+
         public void setSsStoreSK(int s_floor_space) {
             this.s_floor_space = s_floor_space;
         }
-    
+
         public Double getSsNetPaid() {
             return this.ss_net_paid;
         }
-    
+
         public void setSsNetPaid(Double ss_net_paid) {
             this.ss_net_paid = ss_net_paid;
         }
-    
+
     }
-    
-    public static class StoreMapper extends Mapper<Object, Text, IntWritable, Text>{    
+
+    public static class StoreMapper extends Mapper<Object, Text, IntWritable, Text>{
         private IntWritable outKey;
         private Text outValue;
 
@@ -96,7 +95,7 @@ public class ReduceSideJoin {
             String[] tokens = value.toString().split("\\|", -1);
             int s_store_sk;  // index is 0 in the schema
             String s_floor_space;  // index is 7 in the scehma
-            
+
 
             if (tokens[0].isEmpty() || tokens[0] == null || tokens[0].trim().isEmpty()) {
                 return;
@@ -125,7 +124,7 @@ public class ReduceSideJoin {
             String[] tokens = value.toString().split("\\|", -1);
             int ss_store_sk;  // index is 7 in the schema
             String ss_net_paid;  // index is 20 in the schema
-            
+
             // Get the input timestamps
             Configuration cfg = context.getConfiguration();
             String args[] = cfg.getStrings("Reduce side join inputs");
@@ -165,15 +164,15 @@ public class ReduceSideJoin {
 
     public static class JoinResultReducer extends Reducer<IntWritable, Text, IntWritable, FloorSpaceNetPaidPair> {
         private IntWritable outKey;
-    	private FloorSpaceNetPaidPair outValue = new FloorSpaceNetPaidPair();
-        
+        private FloorSpaceNetPaidPair outValue = new FloorSpaceNetPaidPair();
+
         private TreeMap<FloorSpaceNetPaidPair, Integer> treeMap = new TreeMap<FloorSpaceNetPaidPair, Integer>(
-            new Comparator<FloorSpaceNetPaidPair>() {
-            @Override
-            public int compare(FloorSpaceNetPaidPair x, FloorSpaceNetPaidPair y) {
-                return y.compareTo(x);
-            }
-        });
+                new Comparator<FloorSpaceNetPaidPair>() {
+                    @Override
+                    public int compare(FloorSpaceNetPaidPair x, FloorSpaceNetPaidPair y) {
+                        return y.compareTo(x);
+                    }
+                });
 
         @Override
         public void reduce(IntWritable key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
@@ -233,7 +232,7 @@ public class ReduceSideJoin {
 
         // reducer output class
         job.setOutputKeyClass(IntWritable.class);
-		job.setOutputValueClass(FloorSpaceNetPaidPair.class);
+        job.setOutputValueClass(FloorSpaceNetPaidPair.class);
 
         // Output path
         FileOutputFormat.setOutputPath(job, new Path(args[5]));
