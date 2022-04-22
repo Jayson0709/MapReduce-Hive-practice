@@ -5,4 +5,4 @@ where ss_sold_date_sk >= 2451146
   and ss_net_paid is not null
 group by ss_store_sk
 order by total_net_paid desc
-    limit 10;
+limit 10;
