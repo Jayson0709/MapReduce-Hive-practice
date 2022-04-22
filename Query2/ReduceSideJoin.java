@@ -188,7 +188,7 @@ public class ReduceSideJoin {
                 }
             }
             // Some stores will not have any ss_net_paid data in the range
-            if (ss_net_paid_total <= 0.0) {
+            if (ss_net_paid_total < 0.0) {
                 return;
             }
             FloorSpaceNetPaidPair tempPair = new FloorSpaceNetPaidPair(s_floor_space, ss_net_paid_total);
