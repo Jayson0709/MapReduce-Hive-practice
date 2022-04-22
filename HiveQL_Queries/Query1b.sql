@@ -5,4 +5,4 @@ where ss_sold_date_sk >= 2451146
   and ss_quantity is not null
 group by ss_item_sk
 order by sales desc
-    limit 10;
+limit 10;
